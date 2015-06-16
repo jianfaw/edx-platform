@@ -53,10 +53,11 @@ class @DiscussionSpecHelper
         ]
 
         for templateName in templateNames
-            templateFixture = readFixtures('common/templates/discussion/' + templateName + '.underscore')
+            templateFixture = readFixtures('lms/templates/js/discussion/' + templateName + '.underscore')
             appendSetFixtures($('<script>', { id: templateName + '-template', type: 'text/template' })
                 .text(templateFixture))
         for templateName in templateNamesNoTrailingTemplate
-            templateFixture = readFixtures('common/templates/discussion/' + templateName + '.underscore')
+            templateFixture = readFixtures('lms/templates/js/discussion/' + templateName + '.underscore')
             appendSetFixtures($('<script>', { id: templateName, type: 'text/template' })
                 .text(templateFixture))
+        appendSetFixtures("""<div id="fixture-element"></div>""")
