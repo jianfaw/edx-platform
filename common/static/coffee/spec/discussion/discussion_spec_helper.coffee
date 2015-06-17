@@ -60,4 +60,11 @@ class @DiscussionSpecHelper
             templateFixture = readFixtures('lms/templates/js/discussion/' + templateName + '.underscore')
             appendSetFixtures($('<script>', { id: templateName, type: 'text/template' })
                 .text(templateFixture))
-        appendSetFixtures("""<div id="fixture-element"></div>""")
+        appendSetFixtures("""
+            <div id="fixture-element"></div>
+            <div id="discussion-container"
+                data-course-name="Fake Course"
+                data-user-create-comment="true"
+                data-user-create-subcomment="true"
+            ></div>
+        """)
