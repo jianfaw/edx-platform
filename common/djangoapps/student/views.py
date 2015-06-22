@@ -111,7 +111,6 @@ from student.helpers import (
 )
 from student.cookies import set_logged_in_cookies, delete_logged_in_cookies
 from student.models import anonymous_id_for_user
-from xmodule.error_module import ErrorDescriptor
 from shoppingcart.models import DonationConfiguration, CourseRegistrationCode
 
 from embargo import api as embargo_api
@@ -182,7 +181,7 @@ def process_survey_link(survey_link, user):
     return survey_link.format(UNIQUE_ID=unique_id_for_user(user))
 
 
-def cert_info(user, course, course_mode):
+def cert_info(user, course_overview, course_mode):
     """
     Get the certificate info needed to render the dashboard section for the given
     student and course.  Returns a dictionary with keys:
@@ -195,20 +194,22 @@ def cert_info(user, course, course_mode):
     'survey_url': url, only if show_survey_button is True
     'grade': if status is not 'processing'
     """
-    if not course.may_certify():
+    if not course_overview.may_certify():
         return {}
+    return _cert_info(
+        user,
+        course_overview,
+        certificate_status_for_student(user, course_overview.id),
+        course_mode
+    )
 
-    return _cert_info(user, course, certificate_status_for_student(user, course.id), course_mode)
 
-
-def reverification_info(course_enrollment_pairs, user, statuses):
+def reverification_info(statuses):
     """
     Returns reverification-related information for *all* of user's enrollments whose
-    reverification status is in status_list
+    reverification status is in statuses.
 
     Args:
-        course_enrollment_pairs (list): list of (course, enrollment) tuples
-        user (User): the user whose information we want
         statuses (list): a list of reverification statuses we want information for
             example: ["must_reverify", "denied"]
 
@@ -226,37 +227,51 @@ def reverification_info(course_enrollment_pairs, user, statuses):
     return reverifications
 
 
-def get_course_enrollment_pairs(user, course_org_filter, org_filter_out_set):
+def get_course_enrollments(user, course_org_filter, org_filter_out_set):
     """
-    Get the relevant set of (Course, CourseEnrollment) pairs to be displayed on
-    a student's dashboard.
+    Given a user, return a filtered set of his or her course enrollments.
+
+    Arguments:
+        user (User): the user in question.
+        course_org_filter (str): if not None, ONLY courses of this org will
+            be returned. For use in Microsites.
+        org_filter_out_set (list[str]): if course_org_filter is None, then any
+            course whose org is in this list will NOT be returned.
+    Notes:
+        Out of course_org_filter and org_filter_out_set, exactly one should
+        be non-None.
+    Returns:
+        generator[CourseEnrollment]: a sequence of enrollments to be displayed
+        on the user's dashboard.
     """
     for enrollment in CourseEnrollment.enrollments_for_user(user):
-        store = modulestore()
-        with store.bulk_operations(enrollment.course_id):
-            course = store.get_course(enrollment.course_id)
-            if course and not isinstance(course, ErrorDescriptor):
 
-                # if we are in a Microsite, then filter out anything that is not
-                # attributed (by ORG) to that Microsite
-                if course_org_filter and course_org_filter != course.location.org:
-                    continue
-                # Conversely, if we are not in a Microsite, then let's filter out any enrollments
-                # with courses attributed (by ORG) to Microsites
-                elif course.location.org in org_filter_out_set:
-                    continue
+        # If the course is missing or broken, log an error and skip it.
+        course_overview = enrollment.course_overview
+        if not course_overview:
+            log.error(
+                "User %s enrolled in broken or non-existent course %s",
+                user.username,
+                enrollment.course_id
+            )
+            continue
 
-                yield (course, enrollment)
-            else:
-                log.error(
-                    u"User %s enrolled in %s course %s",
-                    user.username,
-                    "broken" if course else "non-existent",
-                    enrollment.course_id
-                )
+        # If we are in a Microsite, then filter out anything that is not
+        # attributed (by ORG) to that Microsite.
+        if course_org_filter and course_overview.location.org != course_org_filter:
+            continue
+
+        # Conversely, if we are not in a Microsite, then filter out any enrollments
+        # with courses attributed (by ORG) to Microsites.
+        elif course_overview.location.org in org_filter_out_set:
+            continue
+
+        # Else, include the enrollment.
+        else:
+            yield enrollment
 
 
-def _cert_info(user, course, cert_status, course_mode):
+def _cert_info(user, course_overview, cert_status, course_mode):  # pylint: disable=unused-argument
     """
     Implements the logic for cert_info -- split out for testing.
     """
@@ -282,7 +297,7 @@ def _cert_info(user, course, cert_status, course_mode):
 
     is_hidden_status = cert_status['status'] in ('unavailable', 'processing', 'generating', 'notpassing')
 
-    if course.certificates_display_behavior == 'early_no_info' and is_hidden_status:
+    if course_overview.certificates_display_behavior == 'early_no_info' and is_hidden_status:
         return None
 
     status = template_state.get(cert_status['status'], default_status)
@@ -296,20 +311,20 @@ def _cert_info(user, course, cert_status, course_mode):
     }
 
     if (status in ('generating', 'ready', 'notpassing', 'restricted') and
-            course.end_of_course_survey_url is not None):
+            course_overview.end_of_course_survey_url is not None):
         status_dict.update({
             'show_survey_button': True,
-            'survey_url': process_survey_link(course.end_of_course_survey_url, user)})
+            'survey_url': process_survey_link(course_overview.end_of_course_survey_url, user)})
     else:
         status_dict['show_survey_button'] = False
 
     if status == 'ready':
         # showing the certificate web view button if certificate is ready state and feature flags are enabled.
         if settings.FEATURES.get('CERTIFICATES_HTML_VIEW', False):
-            if get_active_web_certificate(course) is not None:
+            if course_overview.has_any_active_web_certificate:
                 certificate_url = get_certificate_url(
                     user_id=user.id,
-                    course_id=unicode(course.id),
+                    course_id=unicode(course_overview.id),
                     verify_uuid=None
                 )
                 status_dict.update({
@@ -323,7 +338,7 @@ def _cert_info(user, course, cert_status, course_mode):
             log.warning(
                 u"User %s has a downloadable cert for %s, but no download url",
                 user.username,
-                course.id
+                course_overview.id
             )
             return default_info
         else:
@@ -335,8 +350,8 @@ def _cert_info(user, course, cert_status, course_mode):
             linkedin_config = LinkedInAddToProfileConfiguration.current()
             if linkedin_config.enabled:
                 status_dict['linked_in_url'] = linkedin_config.add_to_profile_url(
-                    course.id,
-                    course.display_name,
+                    course_overview.id,
+                    course_overview.display_name,
                     cert_status.get('mode'),
                     cert_status['download_url']
                 )
@@ -504,13 +519,13 @@ def dashboard(request):
     # Build our (course, enrollment) list for the user, but ignore any courses that no
     # longer exist (because the course IDs have changed). Still, we don't delete those
     # enrollments, because it could have been a data push snafu.
-    course_enrollment_pairs = list(get_course_enrollment_pairs(user, course_org_filter, org_filter_out_set))
+    course_enrollments = list(get_course_enrollments(user, course_org_filter, org_filter_out_set))
 
     # sort the enrollment pairs by the enrollment date
-    course_enrollment_pairs.sort(key=lambda x: x[1].created, reverse=True)
+    course_enrollments.sort(key=lambda x: x.created, reverse=True)
 
     # Retrieve the course modes for each course
-    enrolled_course_ids = [course.id for course, __ in course_enrollment_pairs]
+    enrolled_course_ids = [enrollment.course_id for enrollment in course_enrollments]
     all_course_modes, unexpired_course_modes = CourseMode.all_and_unexpired_modes_for_courses(enrolled_course_ids)
     course_modes_by_course = {
         course_id: {
@@ -523,15 +538,14 @@ def dashboard(request):
     # Check to see if the student has recently enrolled in a course.
     # If so, display a notification message confirming the enrollment.
     enrollment_message = _create_recent_enrollment_message(
-        course_enrollment_pairs, course_modes_by_course
+        course_enrollments, course_modes_by_course
     )
 
-    # Retrieve the course modes for each course
-    enrolled_courses_dict = {}
-    for course, __ in course_enrollment_pairs:
-        enrolled_courses_dict[unicode(course.id)] = course
-
-    credit_messages = _create_credit_availability_message(enrolled_courses_dict, user)
+    enrolled_course_names_dict = {
+        unicode(enrollment.course_id): enrollment.course_overview.display_name
+        for enrollment in course_enrollments
+    }
+    credit_messages = _create_credit_availability_message(enrolled_course_names_dict, user)
 
     course_optouts = Optout.objects.filter(user=user).values_list('course_id', flat=True)
 
@@ -551,20 +565,20 @@ def dashboard(request):
         errored_courses = modulestore().get_errored_courses()
 
     show_courseware_links_for = frozenset(
-        course.id for course, _enrollment in course_enrollment_pairs
-        if has_access(request.user, 'load', course)
-        and has_access(request.user, 'view_courseware_with_prerequisites', course)
+        enrollment.course_id for enrollment in course_enrollments
+        if has_access(request.user, 'load', enrollment.course_overview)
+        and has_access(request.user, 'view_courseware_with_prerequisites', enrollment.course_overview)
     )
 
     # Construct a dictionary of course mode information
     # used to render the course list.  We re-use the course modes dict
     # we loaded earlier to avoid hitting the database.
     course_mode_info = {
-        course.id: complete_course_mode_info(
-            course.id, enrollment,
-            modes=course_modes_by_course[course.id]
+        enrollment.course_id: complete_course_mode_info(
+            enrollment.course_id, enrollment,
+            modes=course_modes_by_course[enrollment.course_id]
         )
-        for course, enrollment in course_enrollment_pairs
+        for enrollment in course_enrollments
     }
 
     # Determine the per-course verification status
@@ -583,20 +597,20 @@ def dashboard(request):
     # there is no verification messaging to display.
     verify_status_by_course = check_verify_status_by_course(
         user,
-        course_enrollment_pairs,
+        course_enrollments,
         all_course_modes
     )
     cert_statuses = {
-        course.id: cert_info(request.user, course, _enrollment.mode)
-        for course, _enrollment in course_enrollment_pairs
+        enrollment.course_id: cert_info(request.user, enrollment.course_overview, enrollment.mode)
+        for enrollment in course_enrollments
     }
 
     # only show email settings for Mongo course and when bulk email is turned on
     show_email_settings_for = frozenset(
-        course.id for course, _enrollment in course_enrollment_pairs if (
+        enrollment.course_id for enrollment in course_enrollments if (
             settings.FEATURES['ENABLE_INSTRUCTOR_EMAIL'] and
-            modulestore().get_modulestore_type(course.id) != ModuleStoreEnum.Type.xml and
-            CourseAuthorization.instructor_email_enabled(course.id)
+            modulestore().get_modulestore_type(enrollment.course_id) != ModuleStoreEnum.Type.xml and
+            CourseAuthorization.instructor_email_enabled(enrollment.course_id)
         )
     )
 
@@ -606,16 +620,29 @@ def dashboard(request):
 
     # Gets data for midcourse reverifications, if any are necessary or have failed
     statuses = ["approved", "denied", "pending", "must_reverify"]
-    reverifications = reverification_info(course_enrollment_pairs, user, statuses)
+    reverifications = reverification_info(statuses)
 
-    show_refund_option_for = frozenset(course.id for course, _enrollment in course_enrollment_pairs
-                                       if _enrollment.refundable())
+    show_refund_option_for = frozenset(
+        enrollment.course_id for enrollment in course_enrollments
+        if enrollment.refundable()
+    )
 
-    block_courses = frozenset(course.id for course, enrollment in course_enrollment_pairs
-                              if is_course_blocked(request, CourseRegistrationCode.objects.filter(course_id=course.id, registrationcoderedemption__redeemed_by=request.user), course.id))
+    block_courses = frozenset(
+        enrollment.course_id for enrollment in course_enrollments
+        if is_course_blocked(
+            request,
+            CourseRegistrationCode.objects.filter(
+                course_id=enrollment.course_id,
+                registrationcoderedemption__redeemed_by=request.user
+            ),
+            enrollment.course_id
+        )
+    )
 
-    enrolled_courses_either_paid = frozenset(course.id for course, _enrollment in course_enrollment_pairs
-                                             if _enrollment.is_paid_course())
+    enrolled_courses_either_paid = frozenset(
+        enrollment.course_id for enrollment in course_enrollments
+        if enrollment.is_paid_course()
+    )
 
     # If there are *any* denied reverifications that have not been toggled off,
     # we'll display the banner
@@ -625,8 +652,10 @@ def dashboard(request):
     order_history_list = order_history(user, course_org_filter=course_org_filter, org_filter_out_set=org_filter_out_set)
 
     # get list of courses having pre-requisites yet to be completed
-    courses_having_prerequisites = frozenset(course.id for course, _enrollment in course_enrollment_pairs
-                                             if course.pre_requisite_courses)
+    courses_having_prerequisites = frozenset(
+        enrollment.course_id for enrollment in course_enrollments
+        if enrollment.course_overview.pre_requisite_courses
+    )
     courses_requirements_not_met = get_pre_requisite_courses_not_completed(user, courses_having_prerequisites)
 
     ccx_membership_triplets = []
@@ -638,8 +667,8 @@ def dashboard(request):
 
     context = {
         'enrollment_message': enrollment_message,
+        'course_enrollments': course_enrollments,
         'credit_messages': credit_messages,
-        'course_enrollment_pairs': course_enrollment_pairs,
         'course_optouts': course_optouts,
         'message': message,
         'staff_access': staff_access,
@@ -669,13 +698,15 @@ def dashboard(request):
     return render_to_response('dashboard.html', context)
 
 
-def _create_recent_enrollment_message(course_enrollment_pairs, course_modes):
-    """Builds a recent course enrollment message
+def _create_recent_enrollment_message(course_enrollments, course_modes):  # pylint: disable=invalid-name
+    """
+    Builds a recent course enrollment message.
 
-    Constructs a new message template based on any recent course enrollments for the student.
+    Constructs a new message template based on any recent course enrollments
+    for the student.
 
     Args:
-        course_enrollment_pairs (list): A list of tuples containing courses, and the associated enrollment information.
+        course_enrollments (list[CourseEnrollment]): a list of course enrollments.
         course_modes (dict): Mapping of course ID's to course mode dictionaries.
 
     Returns:
@@ -683,16 +714,16 @@ def _create_recent_enrollment_message(course_enrollment_pairs, course_modes):
         None if there are no recently enrolled courses.
 
     """
-    recently_enrolled_courses = _get_recently_enrolled_courses(course_enrollment_pairs)
+    recently_enrolled_courses = _get_recently_enrolled_courses(course_enrollments)
 
     if recently_enrolled_courses:
         messages = [
             {
-                "course_id": course.id,
-                "course_name": course.display_name,
-                "allow_donation": _allow_donation(course_modes, course.id, enrollment)
+                "course_id": enrollment.course_overview.id,
+                "course_name": enrollment.course_overview.display_name,
+                "allow_donation": _allow_donation(course_modes, enrollment.course_overview.id, enrollment)
             }
-            for course, enrollment in recently_enrolled_courses
+            for enrollment in recently_enrolled_courses
         ]
 
         platform_name = microsite.get_value('platform_name', settings.PLATFORM_NAME)
@@ -703,14 +734,16 @@ def _create_recent_enrollment_message(course_enrollment_pairs, course_modes):
         )
 
 
-def _create_credit_availability_message(enrolled_courses_dict, user):  # pylint: disable=invalid-name
-    """Builds a dict of credit availability for courses.
+def _create_credit_availability_message(enrolled_course_names_dict, user):  # pylint: disable=invalid-name
+    """
+    Builds a dict of credit availability for courses.
 
-    Construct a for courses user has completed and has not purchased credit
+    Construct a dict for courses user has completed and has not purchased credit
     from the credit provider yet.
 
     Args:
-        course_enrollment_pairs (list): A list of tuples containing courses, and the associated enrollment information.
+        enrolled_course_names_dict (dict[CourseKey: str]): Mapping from course
+            keys to display names for a user's enrolled courses.
         user (User): User object.
 
     Returns:
@@ -732,7 +765,7 @@ def _create_credit_availability_message(enrolled_courses_dict, user):  # pylint:
                 eligibility_messages[course_id] = {
                     "user_id": user.id,
                     "course_id": course_id,
-                    "course_name": enrolled_courses_dict[course_id].display_name,
+                    "course_name": enrolled_course_names_dict[course_id],
                     "providers": eligibility["providers"],
                     "status": eligibility["status"],
                     "provider": eligibility.get("provider"),
@@ -744,22 +777,20 @@ def _create_credit_availability_message(enrolled_courses_dict, user):  # pylint:
     return eligibility_messages
 
 
-def _get_recently_enrolled_courses(course_enrollment_pairs):
-    """Checks to see if the student has recently enrolled in courses.
-
-    Checks to see if any of the enrollments in the course_enrollment_pairs have been recently created and activated.
+def _get_recently_enrolled_courses(course_enrollments):
+    """
+    Given a list of enrollments, filter out all but recent enrollments.
 
     Args:
-        course_enrollment_pairs (list): A list of tuples containing courses, and the associated enrollment information.
+        course_enrollments (list[CourseEnrollment]): A list of course enrollments.
 
     Returns:
-        A list of courses
-
+        list[CourseEnrollment]: A list of recent course enrollments.
     """
     seconds = DashboardConfiguration.current().recent_enrollment_time_delta
     time_delta = (datetime.datetime.now(UTC) - datetime.timedelta(seconds=seconds))
     return [
-        (course, enrollment) for course, enrollment in course_enrollment_pairs
+        enrollment for enrollment in course_enrollments
         # If the enrollment has no created date, we are explicitly excluding the course
         # from the list of recent enrollments.
         if enrollment.is_active and enrollment.created > time_delta
