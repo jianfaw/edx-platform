@@ -85,7 +85,8 @@ def _get_min_grade_requirement(course):
                 "display_name": "Grade",
                 "criteria": {
                     "min_grade": getattr(course, "minimum_grade_credit")
-                }
+                },
+                "order": 0
             }
         ]
     except AttributeError:
@@ -105,15 +106,20 @@ def _get_credit_course_requirement_xblocks(course):  # pylint: disable=invalid-n
     """
     blocks_stack = [course]
     requirements_blocks = []
+    block_order = 0
     while blocks_stack:
         curr_block = blocks_stack.pop()
         children = curr_block.get_children() if curr_block.has_children else []
         if _is_credit_requirement(curr_block):
+            # Add the order to credit requirement according to their
+            # corresponding appearance in courseware
+            block_order += 1
             block = {
                 "namespace": curr_block.get_credit_requirement_namespace(),
                 "name": curr_block.get_credit_requirement_name(),
                 "display_name": curr_block.get_credit_requirement_display_name(),
-                "criteria": ""
+                "criteria": "",
+                "order": block_order,
             }
             requirements_blocks.append(block)
 

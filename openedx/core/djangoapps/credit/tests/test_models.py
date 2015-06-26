@@ -37,7 +37,8 @@ class CreditEligibilityModelTests(TestCase):
             "display_name": "Grade",
             "criteria": {
                 "min_grade": 0.8
-            }
+            },
+            "order": 1,
         }
         credit_req, created = CreditRequirement.add_or_update_course_requirement(credit_course, requirement)
         self.assertEqual(credit_course, credit_req.course)
@@ -53,7 +54,8 @@ class CreditEligibilityModelTests(TestCase):
             "display_name": "Grade",
             "criteria": {
                 "min_grade": 0.8
-            }
+            },
+            "order": 1,
         }
         credit_req, created = CreditRequirement.add_or_update_course_requirement(credit_course, requirement)
         self.assertEqual(credit_course, credit_req.course)
@@ -63,7 +65,8 @@ class CreditEligibilityModelTests(TestCase):
             "namespace": "reverification",
             "name": "i4x://edX/DemoX/edx-reverification-block/assessment_uuid",
             "display_name": "Assessment 1",
-            "criteria": {}
+            "criteria": {},
+            "order": 1,
         }
         credit_req, created = CreditRequirement.add_or_update_course_requirement(credit_course, requirement)
         self.assertEqual(credit_course, credit_req.course)

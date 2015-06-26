@@ -627,7 +627,8 @@ class TestCourseGrader(TestSubmittingProblems):
             "namespace": "grade",
             "name": "grade",
             "display_name": "Grade",
-            "criteria": {"min_grade": 0.52}
+            "criteria": {"min_grade": 0.52},
+            "order": 0,
         }]
         # Add a single credit requirement (final grade)
         set_credit_requirements(self.course.id, requirements)

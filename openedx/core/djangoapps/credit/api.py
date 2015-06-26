@@ -55,18 +55,21 @@ def set_credit_requirements(course_key, requirements):
                         "name": "i4x://edX/DemoX/edx-reverification-block/assessment_uuid",
                         "display_name": "Assessment 1",
                         "criteria": {},
+                        "order": 2,
                     },
                     {
                         "namespace": "proctored_exam",
                         "name": "i4x://edX/DemoX/proctoring-block/final_uuid",
                         "display_name": "Final Exam",
                         "criteria": {},
+                        "order": 1,
                     },
                     {
                         "namespace": "grade",
                         "name": "grade",
                         "display_name": "Grade",
                         "criteria": {"min_grade": 0.8},
+                        "order": 0,
                     },
                 ])
 
@@ -427,6 +430,7 @@ def get_credit_requirement_status(course_key, username, namespace=None, name=Non
                         "display_name": "In Course Reverification",
                         "criteria": {},
                         "status": "failed",
+                        "status_date": "2015-06-26 07:49:13",
                     },
                     {
                         "namespace": "proctored_exam",
@@ -434,6 +438,7 @@ def get_credit_requirement_status(course_key, username, namespace=None, name=Non
                         "display_name": "Proctored Mid Term Exam",
                         "criteria": {},
                         "status": "satisfied",
+                        "status_date": "2015-06-26 11:07:42",
                     },
                     {
                         "namespace": "grade",
@@ -441,6 +446,7 @@ def get_credit_requirement_status(course_key, username, namespace=None, name=Non
                         "display_name": "Minimum Passing Grade",
                         "criteria": {"min_grade": 0.8},
                         "status": "failed",
+                        "status_date": "2015-06-26 11:07:44",
                     },
                 ]
 
@@ -632,6 +638,8 @@ def _validate_requirements(requirements):
             invalid_params.append("display_name")
         if "criteria" not in requirement:
             invalid_params.append("criteria")
+        if requirement.get("order") is None:
+            invalid_params.append("order")
 
         if invalid_params:
             invalid_requirements.append(
