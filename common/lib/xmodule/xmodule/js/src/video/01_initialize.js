@@ -85,8 +85,7 @@ function (VideoPlayer, i18n, moment) {
         setSpeed: setSpeed,
         speedToString: speedToString,
         trigger: trigger,
-        youtubeId: youtubeId,
-        isYoutubeAvailable: isYoutubeAvailable
+        youtubeId: youtubeId
     },
 
         _youtubeApiDeferred = null,
@@ -125,92 +124,17 @@ function (VideoPlayer, i18n, moment) {
         // will be done as soon as the appropriate video player (YouTube or
         // stand-alone HTML5) is loaded, and can handle embedding.
         //
-        // Note that the loading of stand alone HTML5 player API is handled by
-        // Require JS. At the time when we reach this code, the stand alone
-        // HTML5 player is already loaded, so no further testing in that case
-        // is required.
+
         var video, onYTApiReady, setupOnYouTubeIframeAPIReady;
 
         if (state.videoType === 'youtube') {
-            state.youtubeApiAvailable = false;
-
-            onYTApiReady = function () {
-                console.log('[Video info]: YouTube API is available and is loaded.');
-
-                video = VideoPlayer(state);
-
-                state.modules.push(video);
-                state.__dfd__.resolve();
-
-                state.youtubeApiAvailable = true;
-            };
-
-            if (window.YT) {
-                // If we have a Deferred object responsible for calling OnYouTubeIframeAPIReady
-                // callbacks, make sure that they have all been called by trying to resolve the
-                // Deferred object. Upon resolving, all the OnYouTubeIframeAPIReady will be
-                // called. If the object has been already resolved, the callbacks will not
-                // be called a second time.
-                if (_youtubeApiDeferred) {
-                    _youtubeApiDeferred.resolve();
-                }
-
-                window.YT.ready(onYTApiReady);
-            } else {
-                // There is only one global variable window.onYouTubeIframeAPIReady which
-                // is supposed to be a function that will be called by the YouTube API
-                // when it finished initializing. This function will update this global function
-                // so that it resolves our Deferred object, which will call all of the
-                // OnYouTubeIframeAPIReady callbacks.
-                //
-                // If this global function is already defined, we store it first, and make
-                // sure that it gets executed when our Deferred object is resolved.
-                setupOnYouTubeIframeAPIReady = function () {
-                    _oldOnYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady || undefined;
-
-                    window.onYouTubeIframeAPIReady = function () {
-                        window.onYouTubeIframeAPIReady.resolve();
-                    };
-
-                    window.onYouTubeIframeAPIReady.resolve = _youtubeApiDeferred.resolve;
-                    window.onYouTubeIframeAPIReady.done = _youtubeApiDeferred.done;
-
-                    if (_oldOnYouTubeIframeAPIReady) {
-                        window.onYouTubeIframeAPIReady.done(_oldOnYouTubeIframeAPIReady);
-                    }
-                };
-
-                // If a Deferred object hasn't been created yet, create one now. It will
-                // be responsible for calling OnYouTubeIframeAPIReady callbacks once the
-                // YouTube API loads. After creating the Deferred object, load the YouTube
-                // API.
-                if (!_youtubeApiDeferred) {
-                    _youtubeApiDeferred = $.Deferred();
-                    setupOnYouTubeIframeAPIReady();
-                    _loadYoutubeApi(state);
-                } else if (!window.onYouTubeIframeAPIReady || !window.onYouTubeIframeAPIReady.done) {
-                    // The Deferred object could have been already defined in a previous
-                    // initialization of the video module. However, since then the global variable
-                    // window.onYouTubeIframeAPIReady could have been overwritten. If so,
-                    // we should set it up again.
-                    setupOnYouTubeIframeAPIReady();
-                }
-
-                // Attach a callback to our Deferred object to be called once the
-                // YouTube API loads.
-                window.onYouTubeIframeAPIReady.done(function () {
-                    window.YT.ready(onYTApiReady);
-                });
-            }
+            loadYouTubePlayer(state, true);
         } else {
-            video = VideoPlayer(state);
-
-            state.modules.push(video);
-            state.__dfd__.resolve();
+            loadHtmlPlayer(state);
         }
     }
 
-    function _loadYoutubeApi(state) {
+    function isYouTubeAvailable(state) {
         console.log('[Video info]: YouTube API is not loaded. Will try to load...');
 
         window.setTimeout(function () {
@@ -224,7 +148,7 @@ function (VideoPlayer, i18n, moment) {
             state.el.trigger('youtube_availability', [state.youtubeIsAvailable]);
         }, state.config.ytTestTimeout);
 
-        $.getScript(document.location.protocol + '//' + state.config.ytApiUrl);
+        return $.getScript(document.location.protocol + '//' + state.config.ytApiUrl);
     }
 
     // function _configureCaptions(state)
@@ -465,9 +389,105 @@ function (VideoPlayer, i18n, moment) {
         });
     }
 
+
+    // function loadYouTubePlayer(state)
+    //
+    //     Create any necessary DOM elements, attach them, and set their
+    //     initial configuration. Also make the created DOM elements available
+    //     via the 'state' object. Much easier to work this way - you don't
+    //     have to do repeated jQuery element selects.
+    function loadYouTubePlayer(state) {
+        var video, onYTApiReady, setupOnYouTubeIframeAPIReady;
+        state.youtubeApiAvailable = false;
+
+        onYTApiReady = function () {
+            console.log('[Video info]: YouTube API is available and is loaded.');
+
+            video = VideoPlayer(state);
+
+            state.modules.push(video);
+            state.__dfd__.resolve();
+
+            state.youtubeApiAvailable = true;
+        };
+
+        if (window.YT) {
+            // If we have a Deferred object responsible for calling OnYouTubeIframeAPIReady
+            // callbacks, make sure that they have all been called by trying to resolve the
+            // Deferred object. Upon resolving, all the OnYouTubeIframeAPIReady will be
+            // called. If the object has been already resolved, the callbacks will not
+            // be called a second time.
+            if (_youtubeApiDeferred) {
+                _youtubeApiDeferred.resolve();
+            }
+                window.YT.ready(onYTApiReady);
+        } else {
+            // There is only one global variable window.onYouTubeIframeAPIReady which
+            // is supposed to be a function that will be called by the YouTube API
+            // when it finished initializing. This function will update this global function
+            // so that it resolves our Deferred object, which will call all of the
+            // OnYouTubeIframeAPIReady callbacks.
+            //
+            // If this global function is already defined, we store it first, and make
+            // sure that it gets executed when our Deferred object is resolved.
+            setupOnYouTubeIframeAPIReady = function () {
+                _oldOnYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady || undefined;
+
+                window.onYouTubeIframeAPIReady = function () {
+                    window.onYouTubeIframeAPIReady.resolve();
+                };
+
+                window.onYouTubeIframeAPIReady.resolve = _youtubeApiDeferred.resolve;
+                window.onYouTubeIframeAPIReady.done = _youtubeApiDeferred.done;
+
+                if (_oldOnYouTubeIframeAPIReady) {
+                    window.onYouTubeIframeAPIReady.done(_oldOnYouTubeIframeAPIReady);
+                }
+            };
+
+            // If a Deferred object hasn't been created yet, create one now. It will
+            // be responsible for calling OnYouTubeIframeAPIReady callbacks once the
+            // YouTube API loads. After creating the Deferred object, load the YouTube
+            // API.
+            if (!_youtubeApiDeferred) {
+                _youtubeApiDeferred = $.Deferred();
+                setupOnYouTubeIframeAPIReady();
+            } else if (!window.onYouTubeIframeAPIReady || !window.onYouTubeIframeAPIReady.done) {
+                // The Deferred object could have been already defined in a previous
+                // initialization of the video module. However, since then the global variable
+                // window.onYouTubeIframeAPIReady could have been overwritten. If so,
+                // we should set it up again.
+                setupOnYouTubeIframeAPIReady();
+            }
+
+            // Attach a callback to our Deferred object to be called once the
+            // YouTube API loads.
+            window.onYouTubeIframeAPIReady.done(function () {
+                window.YT.ready(onYTApiReady);
+            });
+        }
+    }
+
+    // function loadHtmlPlayer(state)
+    //
+    //  Create any necessary DOM elements, attach them, and set their
+    //  initial configuration. Also make the created DOM elements available
+    //  via the 'state' object. Much easier to work this way - you don't
+    //  have to do repeated jQuery element selects.
+
+    // Note that the loading of stand alone HTML5 player API is handled by
+    // Require JS. At the time when we reach this code, the stand alone
+    // HTML5 player is already loaded, so no further testing in that case
+    // is required.
+    function loadHtmlPlayer(state) {
+        var video = VideoPlayer(state);
+
+        state.modules.push(video);
+        state.__dfd__.resolve();
+    }
+
     // function initialize(element)
     // The function set initial configuration and preparation.
-
     function initialize(element) {
         var self = this,
             el = this.el,
@@ -512,6 +532,8 @@ function (VideoPlayer, i18n, moment) {
             this.config.speed || this.config.generalSpeed
         );
 
+        _setConfigurations(this);
+
         if (!(_parseYouTubeIDs(this))) {
 
             // If we do not have YouTube ID's, try parsing HTML5 video sources.
@@ -523,18 +545,20 @@ function (VideoPlayer, i18n, moment) {
             }
 
             console.log('[Video info]: Start player in HTML5 mode.');
-
-            _setConfigurations(this);
-            _renderElements(this);
+            loadHtmlPlayer(this);
         } else {
+
             if (!this.youtubeXhr) {
-                this.youtubeXhr = this.getVideoMetadata();
+                loadYouTubePlayer(this);
+                this.youtubeXhr = isYouTubeAvailable(this);
             }
 
             this.youtubeXhr
+                .fail(function(status) {
+                    debugger;
+                })
                 .always(function (json, status) {
-                    // It will work for both if statusCode is 200 or 410.
-                    var didSucceed = (json.error && json.error.code === 410) || status === 'success' || status === 'notmodified';
+                    var didSucceed = status === 'success';
                     if (!didSucceed) {
                         console.log(
                             '[Video info]: YouTube returned an error for ' +
@@ -570,6 +594,8 @@ function (VideoPlayer, i18n, moment) {
                             // control.
                             el.find('a.quality_control').hide();
                         }
+                        loadHtmlPlayer(self);
+
                     } else {
                         console.log(
                             '[Video info]: Start player in YouTube mode.'
@@ -578,9 +604,6 @@ function (VideoPlayer, i18n, moment) {
                         self.fetchMetadata();
                         self.parseSpeed();
                     }
-
-                    _setConfigurations(self);
-                    _renderElements(self);
                 });
         }
 
@@ -689,16 +712,6 @@ function (VideoPlayer, i18n, moment) {
                 '&part=contentDetails&key=', this.config.ytKey ,'&referrer=*.edx.org/*'].join(''),
             timeout: this.config.ytTestTimeout,
             success: _.isFunction(callback) ? callback : null
-        });
-    }
-
-    function isYoutubeAvailable() {
-        // Todo, Change this mechanism, this has false positives.
-        return $.ajax({
-            url: ['https:', '//', 'www.youtube.com/'].join(''),
-            timeout: this.config.ytTestTimeout,
-            type: 'HEAD',
-            headers: {"Access-Control-Allow-Origin": "*"}
         });
     }
 
