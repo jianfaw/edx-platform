@@ -39,7 +39,7 @@ class @DiscussionSpecHelper
     @setUnderscoreFixtures = ->
         templateNames = [
             'thread', 'thread-show', 'thread-edit',
-            'thread-response-show', 'thread-response-edit',
+            'thread-response', 'thread-response-show', 'thread-response-edit',
             'response-comment-show', 'response-comment-edit',
             'thread-list-item', 'discussion-home', 'search-alert',
             'new-post', 'thread-type', 'new-post-menu-entry',
