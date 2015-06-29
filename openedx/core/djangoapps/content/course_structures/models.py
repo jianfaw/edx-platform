@@ -5,7 +5,7 @@ from collections import OrderedDict
 from model_utils.models import TimeStampedModel
 
 from util.models import CompressedTextField
-from xmodule_django.models import CourseKeyField
+from xmodule_django.models import CourseKeyField, UsageKeyField
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -52,6 +52,19 @@ class CourseStructure(TimeStampedModel):
 
         for child_node in cur_block['children']:
             self._traverse_tree(child_node, unordered_structure, ordered_blocks, parent=block)
+
+
+class DiscussionIdMap(TimeStampedModel):
+    course_id = CourseKeyField(max_length=255, db_index=True, unique=True, verbose_name='Course ID')
+
+    discussion_id = models.TextField(db_index=True)
+    module_key = UsageKeyField(max_length=255)
+
+    @property
+    def discussion_id_map(self):
+        if self.discussion_id_map_json:
+            return json.loads(self.discussion_id_map_json)
+        return None
 
 # Signals must be imported in a file that is automatically loaded at app startup (e.g. models.py). We import them
 # at the end of this file to avoid circular dependencies.

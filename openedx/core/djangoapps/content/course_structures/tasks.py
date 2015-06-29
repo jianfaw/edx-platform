@@ -9,7 +9,7 @@ from xmodule.modulestore.django import modulestore
 log = logging.getLogger('edx.celery.task')
 
 
-def _generate_course_structure(course_key):
+def _generate_course_structure_and_discussions(course_key):
     """
     Generates a course structure dictionary for the specified course.
     """
@@ -17,6 +17,7 @@ def _generate_course_structure(course_key):
         course = modulestore().get_course(course_key, depth=None)
         blocks_stack = [course]
         blocks_dict = {}
+        discussions = {}
         while blocks_stack:
             curr_block = blocks_stack.pop()
             children = curr_block.get_children() if curr_block.has_children else []
@@ -27,6 +28,9 @@ def _generate_course_structure(course_key):
                 "display_name": curr_block.display_name,
                 "children": [unicode(child.scope_ids.usage_id) for child in children]
             }
+
+            if curr_block.category == 'discussion' and hasattr(curr_block, 'discussion_id'):
+                discussions[curr_block.discussion_id] = unicode(curr_block.scope_ids.usage_id)
 
             # Retrieve these attributes separately so that we can fail gracefully
             # if the block doesn't have the attribute.
@@ -43,8 +47,11 @@ def _generate_course_structure(course_key):
             # Add this blocks children to the stack so that we can traverse them as well.
             blocks_stack.extend(children)
         return {
-            "root": unicode(course.scope_ids.usage_id),
-            "blocks": blocks_dict
+            'course_structure': {
+                "root": unicode(course.scope_ids.usage_id),
+                "blocks": blocks_dict
+            },
+            'discussions': discussions
         }
 
 
@@ -54,7 +61,7 @@ def update_course_structure(course_key):
     Regenerates and updates the course structure (in the database) for the specified course.
     """
     # Import here to avoid circular import.
-    from .models import CourseStructure
+    from .models import CourseStructure, DiscussionIdMap
 
     # Ideally we'd like to accept a CourseLocator; however, CourseLocator is not JSON-serializable (by default) so
     # Celery's delayed tasks fail to start. For this reason, callers should pass the course key as a Unicode string.
@@ -64,7 +71,9 @@ def update_course_structure(course_key):
     course_key = CourseKey.from_string(course_key)
 
     try:
-        structure = _generate_course_structure(course_key)
+        structure_and_discussions = _generate_course_structure_and_discussions(course_key)
+        structure = structure_and_discussions['course_structure']
+        discussions = structure_and_discussions['discussions']
     except Exception as ex:
         log.exception('An error occurred while generating course structure: %s', ex.message)
         raise
@@ -79,3 +88,14 @@ def update_course_structure(course_key):
     if not created:
         cs.structure_json = structure_json
         cs.save()
+
+    discussion_id_map_json = json.dumps(discussions)
+
+    dis, created = DiscussionIdMap.objects.get_or_create(
+        course_id=course_key,
+        defaults={'discussion_id_map_json': discussion_id_map_json}
+    )
+
+    if not created:
+        dis.discussion_id_map_json = discussion_id_map_json
+        dis.save()

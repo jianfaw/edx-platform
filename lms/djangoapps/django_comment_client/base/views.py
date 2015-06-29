@@ -76,12 +76,25 @@ def track_forum_event(request, event_name, course, obj, data, id_map=None):
     Send out an analytics event when a forum event happens. Works for threads,
     responses to threads, and comments on those responses.
     """
+    from openedx.core.djangoapps.content.course_structures.models import DiscussionIdMap
+    from xmodule.modulestore.django import modulestore
+    from opaque_keys.edx.keys import UsageKey
     user = request.user
     data['id'] = obj.id
-    if id_map is None:
-        id_map = get_discussion_id_map(course, user)
-
     commentable_id = data['commentable_id']
+
+    if id_map is None:
+        try:
+            cached_mapping = DiscussionIdMap.objects.get(course_id=course.id).discussion_id_map
+            id_map = {}
+            if commentable_id in cached_mapping:
+                module = modulestore().get_item(UsageKey.from_string(cached_mapping[commentable_id]))
+                title = module.discussion_target
+                last_category = module.discussion_category.split("/")[-1].strip()
+                id_map[commentable_id] = {"location": module.location, "title": last_category + " / " + title}
+        except DiscussionIdMap.DoesNotExist:
+            id_map = get_discussion_id_map(course, user)
+
     if commentable_id in id_map:
         data['category_name'] = id_map[commentable_id]["title"]
         data['category_id'] = commentable_id
@@ -314,9 +327,14 @@ def create_comment(request, course_id, thread_id):
     given a course_id and thread_id, test for comment depth. if not too deep,
     call _create_comment to create the actual comment.
     """
-    if is_comment_too_deep(parent=None):
-        return JsonError(_("Comment level too deep"))
-    return _create_comment(request, SlashSeparatedCourseKey.from_deprecated_string(course_id), thread_id=thread_id)
+    import cProfile; import uuid; pr = cProfile.Profile(); pr.enable()
+    try:
+        if is_comment_too_deep(parent=None):
+            return JsonError(_("Comment level too deep"))
+        return _create_comment(request, SlashSeparatedCourseKey.from_deprecated_string(course_id), thread_id=thread_id)
+    finally:
+        pr.disable()
+        pr.dump_stats('test.profile')
 
 
 @require_POST
