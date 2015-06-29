@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name="Open edX",
-    version="0.4",
+    version="0.4.1",
     install_requires=["distribute"],
     requires=[],
     # NOTE: These are not the names we should be installing.  This tree should
@@ -36,11 +36,6 @@ setup(
             "teams = lms.djangoapps.teams.plugins:TeamsTab",
             "textbooks = lms.djangoapps.courseware.tabs:TextbookTabs",
             "wiki = lms.djangoapps.course_wiki.tab:WikiTab",
-
-            # ORA 1 tabs (deprecated)
-            "peer_grading = lms.djangoapps.open_ended_grading.views:PeerGradingTab",
-            "staff_grading = lms.djangoapps.open_ended_grading.views:StaffGradingTab",
-            "open_ended = lms.djangoapps.open_ended_grading.views:OpenEndedGradingTab",
         ],
         "openedx.user_partition_scheme": [
             "random = openedx.core.djangoapps.user_api.partition_schemes:RandomUserPartitionScheme",

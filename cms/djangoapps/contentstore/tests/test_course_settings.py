@@ -930,6 +930,8 @@ class CourseMetadataEditingTest(CourseTestCase):
     def test_advanced_components_munge_tabs(self):
         """
         Test that adding and removing specific advanced components adds and removes tabs.
+
+        "combinedopenended" has been disabled and so its tabs should not show.
         """
         open_ended_tab = {"type": "open_ended", "name": "Open Ended Panel"}
         peer_grading_tab = {"type": "peer_grading", "name": "Peer grading"}
@@ -939,25 +941,25 @@ class CourseMetadataEditingTest(CourseTestCase):
         self.assertNotIn(peer_grading_tab, self.course.tabs)
         self.assertNotIn(self.notes_tab, self.course.tabs)
 
-        # Now add the "combinedopenended" component and verify that the tab has been added
+        # Now add the "combinedopenended" component and verify that the tab is not shown.
         self.client.ajax_post(self.course_setting_url, {
             ADVANCED_COMPONENT_POLICY_KEY: {"value": ["combinedopenended"]}
         })
         course = modulestore().get_course(self.course.id)
-        self.assertIn(open_ended_tab, course.tabs)
-        self.assertIn(peer_grading_tab, course.tabs)
+        self.assertNotIn(open_ended_tab, course.tabs)
+        self.assertNotIn(peer_grading_tab, course.tabs)
         self.assertNotIn(self.notes_tab, course.tabs)
 
-        # Now enable student notes and verify that the "My Notes" tab has also been added
+        # Now enable student notes and verify that the "My Notes" tab is shown.
         self.client.ajax_post(self.course_setting_url, {
             ADVANCED_COMPONENT_POLICY_KEY: {"value": ["combinedopenended", "notes"]}
         })
         course = modulestore().get_course(self.course.id)
-        self.assertIn(open_ended_tab, course.tabs)
-        self.assertIn(peer_grading_tab, course.tabs)
+        self.assertNotIn(open_ended_tab, course.tabs)
+        self.assertNotIn(peer_grading_tab, course.tabs)
         self.assertIn(self.notes_tab, course.tabs)
 
-        # Now remove the "combinedopenended" component and verify that the tab is gone
+        # Now remove the "combinedopenended" component and verify that the tabs remain the same.
         self.client.ajax_post(self.course_setting_url, {
             ADVANCED_COMPONENT_POLICY_KEY: {"value": ["notes"]}
         })
