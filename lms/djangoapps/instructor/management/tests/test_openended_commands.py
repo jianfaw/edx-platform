@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 from mock import patch
 from pytz import UTC
+from unittest import skip
 
 from django.conf import settings
 from opaque_keys.edx.locations import Location
@@ -27,6 +28,7 @@ from instructor.utils import get_module_for_student
 TEST_DATA_DIR = settings.COMMON_TEST_DATA_ROOT
 
 
+@skip('ORA 1 is disabled.')
 class OpenEndedPostTest(ModuleStoreTestCase):
     """Test the openended_post management command."""
 
@@ -128,6 +130,7 @@ class OpenEndedPostTest(ModuleStoreTestCase):
         self.assertFalse(result)
 
 
+@skip('ORA 1 is disabled.')
 class OpenEndedStatsTest(ModuleStoreTestCase):
     """Test the openended_stats management command."""
 

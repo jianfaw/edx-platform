@@ -167,6 +167,7 @@ def create_modulestore_instance(
         request_cache=request_cache,
         xblock_mixins=getattr(settings, 'XBLOCK_MIXINS', ()),
         xblock_select=getattr(settings, 'XBLOCK_SELECT_FUNCTION', None),
+        disabled_xblock_types=getattr(settings, 'DISABLED_XBLOCK_TYPES', ()),
         doc_store_config=doc_store_config,
         i18n_service=i18n_service or ModuleI18nService(),
         fs_service=fs_service or xblock.reference.plugins.FSService(),

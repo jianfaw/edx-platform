@@ -22,6 +22,7 @@ from ..fixtures.xqueue import XQueueResponseFixture
 from .helpers import load_data_str, UniqueCourseTest
 
 
+@skip('ORA 1 is disabled.')
 class OpenResponseTest(UniqueCourseTest):
     """
     Tests that interact with ORA (Open Response Assessment) through the LMS UI.
@@ -186,6 +187,7 @@ class OpenResponseTest(UniqueCourseTest):
         return _inner_check
 
 
+@skip('ORA 1 is disabled.')
 class SelfAssessmentTest(OpenResponseTest):
     """
     Test ORA self-assessment.
@@ -221,6 +223,7 @@ class SelfAssessmentTest(OpenResponseTest):
         self.assertEqual(scores, [(1, 2), (0, 2), (0, 2)])
 
 
+@skip('ORA 1 is disabled.')
 class AIAssessmentTest(OpenResponseTest):
     """
     Test ORA AI-assessment.
@@ -264,6 +267,7 @@ class AIAssessmentTest(OpenResponseTest):
         self.assertEqual(scores, [(0, 2), (1, 2), (0, 2)])
 
 
+@skip('ORA 1 is disabled.')
 class InstructorAssessmentTest(OpenResponseTest):
     """
     Test an AI-assessment that has been graded by an instructor.
@@ -311,6 +315,7 @@ class InstructorAssessmentTest(OpenResponseTest):
         self.assertEqual(scores, [(0, 2), (1, 2), (0, 2)])
 
 
+@skip('ORA 1 is disabled.')
 class PeerAssessmentTest(OpenResponseTest):
     """
     Test ORA peer-assessment, including calibration and giving/receiving scores.

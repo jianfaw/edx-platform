@@ -6,6 +6,7 @@ Tests for open ended grading interfaces
 
 import json
 import logging
+from unittest import skip
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -100,6 +101,7 @@ class StudentProblemListMockQuery(object):
         }
 
 
+@skip('ORA 1 is disabled.')
 class TestStaffGradingService(ModuleStoreTestCase, LoginEnrollmentTestCase):
     '''
     Check that staff grading service proxy works.  Basically just checking the
@@ -254,6 +256,7 @@ class TestStaffGradingService(ModuleStoreTestCase, LoginEnrollmentTestCase):
         )
 
 
+@skip('ORA 1 is disabled.')
 class TestPeerGradingService(ModuleStoreTestCase, LoginEnrollmentTestCase):
     '''
     Check that staff grading service proxy works.  Basically just checking the
@@ -441,6 +444,7 @@ class TestPeerGradingService(ModuleStoreTestCase, LoginEnrollmentTestCase):
         )
 
 
+@skip('ORA 1 is disabled.')
 class TestPanel(ModuleStoreTestCase):
     """
     Run tests on the open ended panel
@@ -485,6 +489,7 @@ class TestPanel(ModuleStoreTestCase):
         self.assertRegexpMatches(response.content, "Here is a list of open ended problems for this course.")
 
 
+@skip('ORA 1 is disabled.')
 class TestPeerGradingFound(ModuleStoreTestCase):
     """
     Test to see if peer grading modules can be found properly.
@@ -507,6 +512,7 @@ class TestPeerGradingFound(ModuleStoreTestCase):
         self.assertEqual(found, False)
 
 
+@skip('ORA 1 is disabled.')
 class TestStudentProblemList(ModuleStoreTestCase):
     """
     Test if the student problem list correctly fetches and parses problems.

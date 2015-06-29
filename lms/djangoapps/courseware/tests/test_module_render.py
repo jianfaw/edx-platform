@@ -1687,3 +1687,23 @@ class TestFilteredChildren(ModuleStoreTestCase):
         Used to assert that sets of children are equivalent.
         """
         self.assertEquals(set(child_usage_ids), set(child.scope_ids.usage_id for child in block.get_children()))
+
+
+@attr('shard_1')
+@ddt.ddt
+class TestDisabledXBlockTypes(ModuleStoreTestCase):
+    """
+    Tests that verify disabled XBlock types are not loaded.
+    """
+    # pylint: disable=attribute-defined-outside-init, no-member
+    def setUp(self):
+        super(TestDisabledXBlockTypes, self).setUp()
+
+    @ddt.data(ModuleStoreEnum.Type.mongo, ModuleStoreEnum.Type.split)
+    def test_get_item(self, default_ms):
+        with self.store.default_store(default_ms):
+            course = CourseFactory()
+            for block_type in ('peergrading', 'combinedopenended'):
+                item = ItemFactory(category='combinedopenended', parent=course)
+                item = modulestore().get_item(item.scope_ids.usage_id)
+                self.assertEqual(item.__class__.__name__, 'RawDescriptorWithMixins')

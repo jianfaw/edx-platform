@@ -700,6 +700,8 @@ XBLOCK_MIXINS = (LmsBlockMixin, InheritanceMixin, XModuleMixin)
 # Allow any XBlock in the LMS
 XBLOCK_SELECT_FUNCTION = prefer_xmodules
 
+DISABLED_XBLOCK_TYPES = ('peergrading', 'combinedopenended')
+
 ############# ModuleStore Configuration ##########
 
 MODULESTORE_BRANCH = 'published-only'
