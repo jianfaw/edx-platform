@@ -4,6 +4,7 @@ from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.utils.translation import ugettext as _
 from microsite_configuration import microsite
+from pipeline_mako import require_js_path
 %>
 
 <!--<%namespace name='static' file='/static_content.html'/>-->
@@ -40,7 +41,7 @@ from microsite_configuration import microsite
 
     <script>
           (function (require) {
-            require(['js/student_account/views/account_settings_factory'], function(setupAccountSettingsSection) {
+            require(['${require_js_path("js/student_account/views/account_settings_factory.js")}'], function(setupAccountSettingsSection) {
 
                 var fieldsData = ${ json.dumps(fields) };
                 var authData = ${ json.dumps(auth) };

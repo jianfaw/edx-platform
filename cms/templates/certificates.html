@@ -5,6 +5,7 @@
 import json
 from contentstore import utils
 from django.utils.translation import ugettext as _
+from pipeline_mako import require_js_path
 %>
 
 <%block name="title">${_("Course Certificates")}</%block>
@@ -27,7 +28,7 @@ CMS.URL.UPLOAD_ASSET = '${upload_asset_url}';
 </%block>
 
 <%block name="requirejs">
-  require(["js/certificates/factories/certificates_page_factory"], function(CertificatesPageFactory) {
+  require(['${require_js_path("js/certificates/factories/certificates_page_factory.js")}'], function(CertificatesPageFactory) {
       CertificatesPageFactory(${json.dumps(certificates)}, "${certificate_url}", "${course_outline_url}", ${json.dumps(course_modes)}, ${json.dumps(certificate_web_view_url)}, ${json.dumps(is_active)}, ${json.dumps(certificate_activation_handler_url)} );
   });
 </%block>

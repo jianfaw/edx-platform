@@ -7,6 +7,7 @@ import third_party_auth
 from third_party_auth import pipeline
 from microsite_configuration import microsite
 from django.core.urlresolvers import reverse
+from pipeline_mako import require_js_path
 %>
 
 <%
@@ -47,7 +48,7 @@ from django.core.urlresolvers import reverse
   % if settings.FEATURES.get('ENABLE_DASHBOARD_SEARCH'):
     <script type="text/javascript">(function (require) {
       'use strict';
-      require(['js/search/dashboard/main'], function(setupDashboardSearch) {
+      require(['${require_js_path("js/search/dashboard/main.js")}'], function(setupDashboardSearch) {
           setupDashboardSearch();
       });
     })(require || RequireJS.require);

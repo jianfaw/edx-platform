@@ -2,6 +2,7 @@
   import json
   from django.utils.translation import ugettext as _
   from microsite_configuration import microsite
+  from pipeline_mako import require_js_path
 %>
 <%inherit file="../main.html" />
 
@@ -19,7 +20,7 @@
       define('course_discovery_meanings', function() {
           return ${json.dumps(course_discovery_meanings)};
       });
-      require(['js/discovery/main'], function(setupDiscovery) {
+      require(['${require_js_path("js/discovery/main.js")}'], function(setupDiscovery) {
           setupDiscovery();
       });
   })(define || RequireJS.define, require || RequireJS.require);

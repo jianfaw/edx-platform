@@ -5,6 +5,7 @@ from django.utils.translation import ugettext as _
 from django.template.defaultfilters import escapejs
 from microsite_configuration import page_title_breadcrumbs
 from edxnotes.helpers import is_feature_enabled as is_edxnotes_enabled
+from pipeline_mako import require_js_path
 %>
 <%def name="course_name()">
  <% return _("{course_number} Courseware").format(course_number=course.display_number_with_default) %>
@@ -68,7 +69,7 @@ ${page_title_breadcrumbs(course_name())}
   % if settings.FEATURES.get('ENABLE_COURSEWARE_SEARCH'):
     <script type="text/javascript">(function (require) {
       'use strict';
-      require(['js/search/course/main'], function(setupCoursewareSearch) {
+      require(['${require_js_path("js/search/course/main.js")}'], function(setupCoursewareSearch) {
           setupCoursewareSearch();
       });
     })(require || RequireJS.require);

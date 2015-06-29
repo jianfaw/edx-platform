@@ -3,6 +3,7 @@
 <%!
 from django.utils.translation import ugettext as _
 import json
+from pipeline_mako import require_js_path
 %>
 
 <%block name="bodyclass">view-student-notes is-in-course course</%block>
@@ -106,7 +107,7 @@ import json
 % if notes:
 <script type="text/javascript">
   (function (require) {
-      require(['js/edxnotes/views/page_factory'], function (NotesPageFactory) {
+      require(['${require_js_path("js/edxnotes/views/page_factory.js")}'], function (NotesPageFactory) {
           var pageView = new NotesPageFactory({
               notesList: ${notes},
               debugMode: ${debug}
