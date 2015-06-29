@@ -28,8 +28,7 @@ EXPECTED_CELERY_COMMAND = (
     "python manage.py lms --settings={settings} celery worker --beat --loglevel=INFO --pythonpath=."
 )
 EXPECTED_RUN_SERVER_COMMAND = (
-    "python manage.py {system} --settings={settings} runserver --traceback"
-    " --pythonpath=. 0.0.0.0:{port}{contracts}"
+    "python manage.py {system} --settings={settings} runserver --traceback --pythonpath=. 0.0.0.0:{port}"
 )
 
 
@@ -87,11 +86,11 @@ class TestPaverServerTasks(PaverTestCase):
 
         # First test with LMS
         options["system"] = "lms"
-        self.verify_server_task("devstack", options)
+        self.verify_server_task("devstack", options, contracts_default=True)
 
         # Then test with Studio
         options["system"] = "cms"
-        self.verify_server_task("devstack", options)
+        self.verify_server_task("devstack", options, contracts_default=True)
 
     @ddt.data(
         [{}],
@@ -101,7 +100,6 @@ class TestPaverServerTasks(PaverTestCase):
         [{"fast": True}],
         [{"optimized": True}],
         [{"optimized": True, "fast": True}],
-        [{"no_contracts": True}],
     )
     @ddt.unpack
     def test_run_all_servers(self, options):
@@ -166,7 +164,7 @@ class TestPaverServerTasks(PaverTestCase):
             ]
         )
 
-    def verify_server_task(self, task_name, options):
+    def verify_server_task(self, task_name, options, contracts_default=False):
         """
         Verify the output of a server task.
         """
@@ -174,7 +172,7 @@ class TestPaverServerTasks(PaverTestCase):
         asset_settings = options.get("asset-settings", None)
         is_optimized = options.get("optimized", False)
         is_fast = options.get("fast", False)
-        no_contracts = options.get("no-contracts", False)
+        no_contracts = options.get("no-contracts", not contracts_default)
         if task_name == "devstack":
             system = options.get("system")
         elif task_name == "studio":
@@ -217,14 +215,15 @@ class TestPaverServerTasks(PaverTestCase):
             expected_messages.append(EXPECTED_COLLECT_STATIC_COMMAND.format(
                 system=system, asset_settings=expected_asset_settings
             ))
-        expected_messages.append(
-            EXPECTED_RUN_SERVER_COMMAND.format(
-                system=system,
-                settings=expected_settings,
-                port=port,
-                contracts=" --contracts" if not no_contracts else ""
-            )
+        expected_run_server_command = EXPECTED_RUN_SERVER_COMMAND.format(
+            system=system,
+            settings=expected_settings,
+            port=port,
+            contracts=" --contracts" if not no_contracts else ""
         )
+        if not no_contracts:
+            expected_run_server_command += " --contracts"
+        expected_messages.append(expected_run_server_command)
         self.assertEquals(self.task_messages, expected_messages)
 
     def verify_run_all_servers_task(self, options):
@@ -235,7 +234,6 @@ class TestPaverServerTasks(PaverTestCase):
         asset_settings = options.get("asset_settings", None)
         is_optimized = options.get("optimized", False)
         is_fast = options.get("fast", False)
-        no_contracts = options.get("no_contracts", False)
         self.reset_task_messages()
         call_task("pavelib.servers.run_all_servers", options=options)
         expected_settings = settings if settings else "devstack"
@@ -268,7 +266,6 @@ class TestPaverServerTasks(PaverTestCase):
                 system="lms",
                 settings=expected_settings,
                 port=8000,
-                contracts=" --contracts" if not no_contracts else ""
             )
         )
         expected_messages.append(
@@ -276,7 +273,6 @@ class TestPaverServerTasks(PaverTestCase):
                 system="cms",
                 settings=expected_settings,
                 port=8001,
-                contracts=" --contracts" if not no_contracts else ""
             )
         )
         expected_messages.append(EXPECTED_CELERY_COMMAND.format(settings="dev_with_worker"))
