@@ -1531,6 +1531,21 @@ class TestXBlockInfo(ItemTest):
 
     def test_vertical_xblock_info(self):
         vertical = modulestore().get_item(self.vertical.location)
+        vertical.start = datetime(year=1899, month=1, day=1, tzinfo=UTC)
+        modulestore.update_item(vertical, self.user.id)
+
+        xblock_info = create_xblock_info(
+            vertical,
+            include_child_info=True,
+            include_children_predicate=ALWAYS,
+            include_ancestor_info=True,
+            user=self.user
+        )
+        add_container_page_publishing_info(vertical, xblock_info)
+        self.validate_vertical_xblock_info(xblock_info)
+
+    def test_vertical_xblock_info(self):
+        vertical = modulestore().get_item(self.vertical.location)
         xblock_info = create_xblock_info(
             vertical,
             include_child_info=True,
@@ -1601,6 +1616,9 @@ class TestXBlockInfo(ItemTest):
         self.assertEqual(xblock_info['display_name'], 'Unit 1')
         self.assertTrue(xblock_info['published'])
         self.assertEqual(xblock_info['edited_by'], 'testuser')
+        start_reset_date = datetime(year=2030, month=1, day=1, tzinfo=UTC)
+        start_reset_date_string = start_reset_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        self.assertEqual(xblock_info['start'], start_reset_date_string)
 
         # Validate that the correct ancestor info has been included
         ancestor_info = xblock_info.get('ancestor_info', None)
